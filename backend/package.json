@@ -1,0 +1,46 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "QuackMail backend API",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "tsx build src/index.ts",
+    "start": "tsx src/index.ts",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "email",
+    "api",
+    "hono"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.18.0",
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "@hono/trpc-server": "^0.4.0",
+    "@libsql/client": "^0.15.15",
+    "@trpc/server": "^11.7.1",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.19.24",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.6",
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.10.4",
+    "imapflow": "^1.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "mailparser": "^3.9.0",
+    "migrator": "link:drizzle-orm/libsql/migrator",
+    "nodemailer": "^7.0.10",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^7.0.3",
+    "tsx": "^4.20.6"
+  }
+}

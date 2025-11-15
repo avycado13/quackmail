@@ -1,0 +1,4993 @@
+frontend/src/app/compose/page.tsx:
+<code>
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ArrowLeft, Send, Loader2 } from 'lucide-react'
+import { ProtectedRoute } from '@/components/protected-route'
+import { useAuth } from '@/lib/auth-context'
+import { email } from '@/lib/api'
+
+export default function ComposePage() {
+  const router = useRouter()
+  const { token } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    to: '',
+    subject: '',
+    body: ''
+  })
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    // Clear messages when user starts typing
+    if (error) setError('')
+    if (success) setSuccess('')
+  }
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    // Validation
+    if (!formData.to.trim()) {
+      setError('Recipient email is required')
+      return
+    }
+
+    if (!validateEmail(formData.to.trim())) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    if (!formData.subject.trim()) {
+      setError('Subject is required')
+      return
+    }
+
+    if (!formData.body.trim()) {
+      setError('Email body is required')
+      return
+    }
+
+    if (!token) {
+      setError('Not authenticated. Please log in.')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      await email.sendEmail(token, {
+        to: [formData.to.trim()],
+        subject: formData.subject.trim(),
+        body: formData.body.trim(),
+        bodyText: formData.body.trim(),
+      })
+
+      setSuccess('Email sent successfully!')
+      setFormData({ to: '', subject: '', body: '' })
+      setTimeout(() => {
+        router.push('/')
+      }, 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send email')
+      console.error('Send email error:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-4xl mx-auto">
+        <div className="mb-4">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Compose Email
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="to" className="block text-sm font-medium mb-1">
+                  To
+                </label>
+                <Input
+                  id="to"
+                  type="email"
+                  placeholder="recipient@example.com"
+                  value={formData.to}
+                  onChange={(e) => handleInputChange('to', e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="subject" className="block text-sm font-medium mb-1">
+                  Subject
+                </label>
+                <Input
+                  id="subject"
+                  placeholder="Email subject"
+                  value={formData.subject}
+                  onChange={(e) => handleInputChange('subject', e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="body" className="block text-sm font-medium mb-1">
+                  Message
+                </label>
+                <Textarea
+                  id="body"
+                  placeholder="Write your message here..."
+                  value={formData.body}
+                  onChange={(e) => handleInputChange('body', e.target.value)}
+                  disabled={isLoading}
+                  rows={12}
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md">
+                  {success}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex items-center gap-2"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {isLoading ? 'Sending...' : 'Send Email'}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+        </div>
+      </div>
+    </ProtectedRoute>
+  )
+}
+
+</code>
+
+frontend/src/app/register/page.tsx:
+<code>
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { useAuth } from '@/lib/auth-context'
+import { auth } from '@/lib/api'
+import Link from 'next/link'
+
+export default function RegisterPage() {
+  const router = useRouter()
+  const { login } = useAuth()
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [step, setStep] = useState<'credentials' | 'email-setup'>('credentials')
+
+  const [credentials, setCredentials] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+  })
+
+  const defaultEmailSetup = {
+    imapHost: process.env.NEXT_PUBLIC_IMAP_HOST || 'imap.gmail.com',
+    imapPort: process.env.NEXT_PUBLIC_IMAP_PORT ? parseInt(process.env.NEXT_PUBLIC_IMAP_PORT) : 993,
+    imapSecure: process.env.NEXT_PUBLIC_IMAP_SECURE === 'true',
+    imapUser: '',
+    imapPass: '',
+    smtpHost: process.env.NEXT_PUBLIC_SMTP_HOST || 'smtp.gmail.com',
+    smtpPort: process.env.NEXT_PUBLIC_SMTP_PORT ? parseInt(process.env.NEXT_PUBLIC_SMTP_PORT) : 587,
+    smtpSecure: process.env.NEXT_PUBLIC_SMTP_SECURE === 'true',
+    smtpUser: '',
+    smtpPass: '',
+    fromEmail: '',
+  };
+  const lockServerSettings = process.env.NEXT_PUBLIC_LOCK_SERVER_SETTINGS === 'true';
+
+  const [emailSetup, setEmailSetup] = useState(defaultEmailSetup)
+
+  const handleCredentialsSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (credentials.password !== credentials.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (credentials.password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    setStep('email-setup')
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const result = await auth.register({
+        email: credentials.email,
+        password: credentials.password,
+        ...emailSetup,
+      })
+
+      login(result.user, result.token)
+      router.push('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const emailProviders: Record<string, typeof emailSetup> = {
+    gmail: {
+      ...emailSetup,
+      imapHost: 'imap.gmail.com',
+      imapPort: 993,
+      imapSecure: true,
+      smtpHost: 'smtp.gmail.com',
+      smtpPort: 587,
+      smtpSecure: false,
+    },
+    outlook: {
+      ...emailSetup,
+      imapHost: 'outlook.office365.com',
+      imapPort: 993,
+      imapSecure: true,
+      smtpHost: 'smtp.office365.com',
+      smtpPort: 587,
+      smtpSecure: true,
+    },
+    custom: emailSetup,
+  }
+
+  const handleProviderChange = (provider: string) => {
+    setEmailSetup(emailProviders[provider])
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <div className="p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">QuackMail</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+              {step === 'credentials' ? 'Create your account' : 'Set up your email'}
+            </p>
+          </div>
+
+          {step === 'credentials' ? (
+            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Email Address
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={credentials.email}
+                  onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Password
+                </label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={credentials.password}
+                  onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Confirm Password
+                </label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={credentials.confirmPassword}
+                  onChange={(e) => setCredentials({ ...credentials, confirmPassword: e.target.value })}
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-sm text-red-700 dark:text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <Button type="submit" className="w-full">
+                Continue
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-4">
+              {!lockServerSettings && (
+                <div className="flex justify-center gap-2">
+                  {Object.keys(emailProviders).map((provider) => (
+                    <button
+                      key={provider}
+                      type="button"
+                      onClick={() => handleProviderChange(provider)}
+                      className={`py-2 px-3 rounded-md text-sm font-medium transition ${
+                        emailSetup.imapHost ===
+                        emailProviders[provider].imapHost
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white'
+                      }`}
+                    >
+                      {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* IMAP Settings */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">IMAP Settings</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="IMAP Host"
+                    value={emailSetup.imapHost}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, imapHost: e.target.value })}
+                    disabled={lockServerSettings}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Port"
+                    value={emailSetup.imapPort}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, imapPort: parseInt(e.target.value) })}
+                    disabled={lockServerSettings}
+                  />
+                </div>
+                <div className="mt-2">
+                  <Input
+                    placeholder="IMAP Username"
+                    value={emailSetup.imapUser}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, imapUser: e.target.value })}
+                  />
+                </div>
+                <div className="mt-2">
+                  <Input
+                    type="password"
+                    placeholder="IMAP Password"
+                    value={emailSetup.imapPass}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, imapPass: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* SMTP Settings */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">SMTP Settings</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="SMTP Host"
+                    value={emailSetup.smtpHost}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, smtpHost: e.target.value })}
+                    disabled={lockServerSettings}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Port"
+                    value={emailSetup.smtpPort}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, smtpPort: parseInt(e.target.value) })}
+                    disabled={lockServerSettings}
+                  />
+                </div>
+                <div className="mt-2">
+                  <Input
+                    placeholder="SMTP Username"
+                    value={emailSetup.smtpUser}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, smtpUser: e.target.value })}
+                  />
+                </div>
+                <div className="mt-2">
+                  <Input
+                    type="password"
+                    placeholder="SMTP Password"
+                    value={emailSetup.smtpPass}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, smtpPass: e.target.value })}
+                  />
+                </div>
+                <div className="mt-2">
+                  <Input
+                    placeholder="From Email"
+                    value={emailSetup.fromEmail}
+                    onChange={(e) => setEmailSetup({ ...emailSetup, fromEmail: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-sm text-red-700 dark:text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setStep('credentials')}
+                  disabled={isLoading}
+                >
+                  Back
+                </Button>
+                <Button type="submit" className="flex-1" disabled={isLoading}>
+                  {isLoading ? 'Creating account...' : 'Create Account'}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {step === 'credentials' && (
+            <div className="mt-6 text-center">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Already have an account?{' '}
+                <Link href="/login" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+</code>
+
+frontend/src/app/login/page.tsx:
+<code>
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { useAuth } from '@/lib/auth-context'
+import { auth } from '@/lib/api'
+import Link from 'next/link'
+
+export default function LoginPage() {
+  const router = useRouter()
+  const { login } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const result = await auth.login(email, password)
+      login(result.user, result.token)
+      router.push('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <div className="p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">QuackMail</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">Your modern webmail client</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Email Address
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-sm text-red-700 dark:text-red-300">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                Create one
+              </Link>
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+</code>
+
+frontend/src/app/layout.tsx:
+<code>
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { Providers } from "@/components/providers";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "QuackMail",
+  description: "A modern webmail client",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" suppressHydrationWarning={true}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  );
+}
+
+</code>
+
+frontend/src/app/page.tsx:
+<code>
+'use client'
+
+import { useState } from 'react'
+import { Sidebar } from '@/components/sidebar'
+import { EmailList } from '@/components/email-list'
+import { EmailView } from '@/components/email-view'
+import { ProtectedRoute } from '@/components/protected-route'
+
+export interface Email {
+  id: string
+  subject: string
+  from: string
+  to: string[]
+  date: string
+  bodyHtml: string
+  folder: string
+  unread: boolean
+}
+
+export default function Home() {
+  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
+  const [currentFolder, setCurrentFolder] = useState('inbox')
+
+  return (
+    <ProtectedRoute>
+      <div className="flex h-screen bg-background">
+        {/* Sidebar */}
+        <Sidebar
+          currentFolder={currentFolder}
+          onFolderChange={setCurrentFolder}
+        />
+
+        {/* Email List */}
+        <EmailList
+          folder={currentFolder}
+          selectedEmail={selectedEmail}
+          onEmailSelect={setSelectedEmail}
+        />
+
+        {/* Email View */}
+        <EmailView email={selectedEmail} />
+      </div>
+    </ProtectedRoute>
+  )
+}
+
+</code>
+
+frontend/src/app/globals.css:
+<code>
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+</code>
+
+frontend/src/components/ui/card.tsx:
+<code>
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+function Card({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card"
+      className={cn(
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-header"
+      className={cn(
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-title"
+      className={cn("leading-none font-semibold", className)}
+      {...props}
+    />
+  )
+}
+
+function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-description"
+      className={cn("text-muted-foreground text-sm", className)}
+      {...props}
+    />
+  )
+}
+
+function CardAction({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-action"
+      className={cn(
+        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function CardContent({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-content"
+      className={cn("px-6", className)}
+      {...props}
+    />
+  )
+}
+
+function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-footer"
+      className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+      {...props}
+    />
+  )
+}
+
+export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardAction,
+  CardDescription,
+  CardContent,
+}
+
+</code>
+
+frontend/src/components/ui/button.tsx:
+<code>
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline:
+          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost:
+          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        icon: "size-9",
+        "icon-sm": "size-8",
+        "icon-lg": "size-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+function Button({
+  className,
+  variant,
+  size,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+  }) {
+  const Comp = asChild ? Slot : "button"
+
+  return (
+    <Comp
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  )
+}
+
+export { Button, buttonVariants }
+
+</code>
+
+frontend/src/components/ui/textarea.tsx:
+<code>
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+  return (
+    <textarea
+      data-slot="textarea"
+      className={cn(
+        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export { Textarea }
+
+</code>
+
+frontend/src/components/ui/input.tsx:
+<code>
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  return (
+    <input
+      type={type}
+      data-slot="input"
+      className={cn(
+        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export { Input }
+
+</code>
+
+frontend/src/components/theme-provider.tsx:
+<code>
+"use client";
+
+import * as React from "react";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+
+type ThemeProviderProps = React.ComponentProps<typeof NextThemesProvider>;
+
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
+}
+
+</code>
+
+frontend/src/components/protected-route.tsx:
+<code>
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login')
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
+  }
+
+  return children
+}
+
+</code>
+
+frontend/src/components/email-list.tsx:
+<code>
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { Card } from '@/components/ui/card'
+import { Email } from '@/app/page'
+import { useAuth } from '@/lib/auth-context'
+import { email } from '@/lib/api'
+
+interface EmailListProps {
+  folder: string
+  selectedEmail: Email | null
+  onEmailSelect: (email: Email) => void
+}
+
+export function EmailList({ folder, selectedEmail, onEmailSelect }: EmailListProps) {
+  const { token } = useAuth()
+
+  const { data: emails = [], isLoading, error } = useQuery({
+    queryKey: ['emails', folder],
+    queryFn: async () => {
+      if (!token) throw new Error('Not authenticated')
+      return email.getMessages(token, folder)
+    },
+    enabled: !!token
+  })
+
+  if (isLoading) {
+    return (
+      <div className="w-96 border-r bg-card flex items-center justify-center">
+        <div className="text-muted-foreground">Loading emails...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="w-96 border-r bg-card flex items-center justify-center">
+        <div className="text-destructive">Error loading emails</div>
+      </div>
+    )
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString()
+  }
+
+  return (
+    <div className="w-96 border-r bg-card overflow-y-auto">
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold capitalize">{folder}</h2>
+        <p className="text-sm text-muted-foreground">{emails.length} messages</p>
+      </div>
+
+      <div className="divide-y">
+        {emails.map((email: Email) => (
+          <Card
+            key={email.id}
+            className={`p-4 cursor-pointer hover:bg-accent transition-colors ${
+              selectedEmail?.id === email.id ? 'bg-accent' : ''
+            }`}
+            onClick={() => onEmailSelect(email)}
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${
+                  email.unread ? 'font-semibold' : ''
+                }`}>
+                  {email.from}
+                </p>
+                <p className={`text-sm truncate ${
+                  email.unread ? 'font-semibold' : 'text-muted-foreground'
+                }`}>
+                  {email.subject}
+                </p>
+              </div>
+              <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                {formatDate(email.date)}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              {email.bodyHtml.replace(/<[^>]*>/g, '')}
+            </p>
+            {email.unread && (
+              <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+            )}
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+</code>
+
+frontend/src/components/email-view.tsx:
+<code>
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { Button } from '@/components/ui/button'
+import { Email } from '@/app/page'
+import { useAuth } from '@/lib/auth-context'
+import { email as emailApi } from '@/lib/api'
+
+interface EmailViewProps {
+  email: Email | null
+}
+
+export function EmailView({ email }: EmailViewProps) {
+  const { token } = useAuth()
+
+  const { data: fullEmail, isLoading } = useQuery({
+    queryKey: ['email', email?.id],
+    queryFn: async () => {
+      if (!email?.id || !token) return null
+      return emailApi.getMessage(token, email.id, email.folder)
+    },
+    enabled: !!email?.id && !!token
+  })
+
+  if (!email) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-card">
+        <div className="text-center text-muted-foreground">
+          <div className="text-6xl mb-4">📧</div>
+          <h3 className="text-lg font-medium mb-2">Select an email to read</h3>
+          <p className="text-sm">Choose an email from the list to view its contents</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-card">
+        <div className="text-muted-foreground">Loading email...</div>
+      </div>
+    )
+  }
+
+  const displayEmail = fullEmail || email
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString()
+  }
+
+  return (
+    <div className="flex-1 bg-card overflow-y-auto">
+      <div className="border-b p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-semibold mb-2 break-words">
+              {displayEmail.subject}
+            </h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <span className="font-medium">From:</span>
+              <span>{displayEmail.from}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <span className="font-medium">To:</span>
+              <span>{displayEmail.to.join(', ')}</span>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {formatDate(displayEmail.date)}
+            </div>
+          </div>
+          <div className="flex gap-2 ml-4">
+            <Button variant="outline" size="sm">
+              Reply
+            </Button>
+            <Button variant="outline" size="sm">
+              Forward
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <div
+          className="prose prose-sm max-w-none dark:prose-invert"
+          dangerouslySetInnerHTML={{ __html: displayEmail.bodyHtml }}
+        />
+      </div>
+    </div>
+  )
+}
+
+</code>
+
+frontend/src/components/sidebar.tsx:
+<code>
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { PenTool, LogOut } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+import { email, auth } from '@/lib/api'
+
+interface SidebarProps {
+  currentFolder: string
+  onFolderChange: (folder: string) => void
+}
+
+interface Folder {
+  name: string
+  count: number
+}
+
+const folderIcons = {
+  inbox: '📥',
+  sent: '📤',
+  drafts: '📝',
+  trash: '🗑️'
+}
+
+export function Sidebar({ currentFolder, onFolderChange }: SidebarProps) {
+  const router = useRouter()
+  const { user, token, logout } = useAuth()
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders'],
+    queryFn: async () => {
+      if (!token) return []
+      return email.getFolders(token)
+    },
+    enabled: !!token
+  })
+
+  const handleLogout = async () => {
+    try {
+      if (token) {
+        await auth.logout(token)
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      logout()
+      router.push('/login')
+    }
+  }
+  return (
+    <div className="w-64 border-r bg-card">
+      <div className="p-4 border-b">
+        <h1 className="text-2xl font-bold text-primary">🦆 QuackMail</h1>
+      </div>
+
+      <div className="p-4">
+        <Button
+          onClick={() => router.push('/compose')}
+          className="w-full mb-4"
+        >
+          <PenTool className="mr-2 h-4 w-4" />
+          Compose
+        </Button>
+
+        <h2 className="text-sm font-semibold text-muted-foreground mb-2">FOLDERS</h2>
+        <div className="space-y-1">
+          {folders.map((folder: Folder) => (
+            <Button
+              key={folder.name}
+              variant={currentFolder === folder.name ? 'secondary' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => onFolderChange(folder.name)}
+            >
+              <span className="mr-2">{folderIcons[folder.name as keyof typeof folderIcons] || '📁'}</span>
+              <span className="flex-1 text-left capitalize">{folder.name}</span>
+              {folder.count > 0 && (
+                <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
+                  {folder.count}
+                </span>
+              )}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-4 border-t space-y-3 mt-auto">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
+          <p className="text-xs text-slate-600 dark:text-slate-400">Logged in as</p>
+          <p className="font-medium text-slate-900 dark:text-white truncate">{user?.email}</p>
+        </div>
+        <div className="flex gap-2">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="flex-1"
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+</code>
+
+frontend/src/components/theme-toggle.tsx:
+<code>
+"use client";
+
+import * as React from "react";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+
+import { Button } from "@/components/ui/button";
+
+export function ThemeToggle() {
+  const { setTheme, theme } = useTheme();
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+    >
+      <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      <span className="sr-only">Toggle theme</span>
+    </Button>
+  );
+}
+
+</code>
+
+frontend/src/components/providers.tsx:
+<code>
+'use client'
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useState } from 'react'
+import { ThemeProvider } from '@/components/theme-provider'
+import { AuthProvider } from '@/lib/auth-context'
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000, // 1 minute
+      },
+    },
+  }))
+
+  return (
+    <AuthProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </ThemeProvider>
+    </AuthProvider>
+  )
+}
+
+</code>
+
+frontend/src/lib/auth-context.tsx:
+<code>
+'use client'
+
+import React, { createContext, useContext, useEffect, useState } from 'react'
+
+interface User {
+  id: string
+  email: string
+}
+
+interface AuthContextType {
+  user: User | null
+  token: string | null
+  isLoading: boolean
+  login: (user: User, token: string) => void
+  logout: () => void
+  isAuthenticated: boolean
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Restore auth from localStorage on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('token')
+    const savedUser = localStorage.getItem('user')
+
+    if (savedToken && savedUser) {
+      try {
+        setToken(savedToken)
+        setUser(JSON.parse(savedUser))
+      } catch (error) {
+        console.error('Failed to restore auth:', error)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+    }
+
+    setIsLoading(false)
+  }, [])
+
+  const login = (newUser: User, newToken: string) => {
+    setUser(newUser)
+    setToken(newToken)
+    localStorage.setItem('token', newToken)
+    localStorage.setItem('user', JSON.stringify(newUser))
+  }
+
+  const logout = () => {
+    setUser(null)
+    setToken(null)
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isLoading,
+        login,
+        logout,
+        isAuthenticated: !!token && !!user,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within AuthProvider')
+  }
+  return context
+}
+
+</code>
+
+frontend/src/lib/utils.ts:
+<code>
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+</code>
+
+frontend/src/lib/api.ts:
+<code>
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+
+interface RequestOptions extends RequestInit {
+  token?: string
+}
+
+export async function apiCall<T>(
+  endpoint: string,
+  options: RequestOptions = {}
+): Promise<T> {
+  const { token, ...fetchOptions } = options
+
+  const headers = new Headers(fetchOptions.headers || {})
+  headers.set('Content-Type', 'application/json')
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...fetchOptions,
+    headers,
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+    throw new Error(error.error || `API error: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+// Auth endpoints
+export const auth = {
+  register: (data: {
+    email: string
+    password: string
+    imapHost: string
+    imapPort: number
+    imapSecure: boolean
+    imapUser: string
+    imapPass: string
+    smtpHost: string
+    smtpPort: number
+    smtpSecure: boolean
+    smtpUser: string
+    smtpPass: string
+    fromEmail: string
+  }) =>
+    apiCall<{ token: string; user: { id: string; email: string } }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  login: (email: string, password: string) =>
+    apiCall<{ token: string; user: { id: string; email: string } }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  logout: (token: string) =>
+    apiCall('/auth/logout', {
+      method: 'POST',
+      token,
+    }),
+}
+
+// User endpoints
+export const user = {
+  getProfile: (token: string) =>
+    apiCall('/user/profile', { token }),
+
+  getCredentials: (token: string) =>
+    apiCall('/user/credentials', { token }),
+
+  updateCredentials: (token: string, data: any) =>
+    apiCall('/user/credentials', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      token,
+    }),
+}
+
+// Email endpoints
+export const email = {
+  getFolders: (token: string) =>
+    apiCall<any[]>('/folders', { token }),
+
+  getMessages: (token: string, folder: string = 'INBOX', page: number = 1, limit: number = 20) =>
+    apiCall<any[]>(`/messages?folder=${folder}&page=${page}&limit=${limit}`, { token }),
+
+  getMessage: (token: string, id: string, folder: string = 'INBOX') =>
+    apiCall<any>(`/messages/${id}?folder=${folder}`, { token }),
+
+  sendEmail: (token: string, data: {
+    to: string[]
+    cc?: string[]
+    bcc?: string[]
+    subject: string
+    body: string
+    bodyText?: string
+  }) =>
+    apiCall('/compose', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      token,
+    }),
+
+  markAsRead: (token: string, id: string, folder: string = 'INBOX') =>
+    apiCall(`/messages/${id}/read?folder=${folder}`, {
+      method: 'PUT',
+      token,
+    }),
+
+  deleteEmail: (token: string, id: string, folder: string = 'INBOX') =>
+    apiCall(`/messages/${id}?folder=${folder}`, {
+      method: 'DELETE',
+      token,
+    }),
+}
+
+</code>
+
+frontend/Dockerfile:
+<code>
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
+
+# Install dependencies
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN pnpm build
+
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["pnpm", "start"]
+
+</code>
+
+frontend/README.md:
+<code>
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+</code>
+
+frontend/package.json:
+<code>
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tanstack/react-query": "^5.90.7",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.553.0",
+    "next": "16.0.1",
+    "next-themes": "^0.4.6",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.1",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5"
+  }
+}
+
+</code>
+
+frontend/tsconfig.json:
+<code>
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+</code>
+
+backend/src/middleware/auth.ts:
+<code>
+import { Context, Next } from 'hono';
+import { authService } from '../services/authService.js';
+
+export async function authMiddleware(c: Context<any>, next: Next) {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Missing authorization header' }, 401);
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    const { userId } = await authService.verifyToken(token);
+    c.set('userId', userId);
+    c.set('token', token);
+    await next();
+  } catch (error) {
+    return c.json({ error: 'Invalid token' }, 401);
+  }
+}
+
+</code>
+
+backend/src/db/schema.ts:
+<code>
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  email: text('email').notNull().unique(),
+  password: text('password').notNull(),
+  createdAt: integer('created_at').notNull().default(sql`(cast(unixepoch() as integer))`),
+  updatedAt: integer('updated_at').notNull().default(sql`(cast(unixepoch() as integer))`),
+});
+
+export const userCredentials = sqliteTable('user_credentials', {
+  id: text('id').primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  imapHost: text('imap_host').notNull(),
+  imapPort: integer('imap_port').notNull().default(993),
+  imapSecure: integer('imap_secure').notNull().default(1),
+  imapUser: text('imap_user').notNull(),
+  imapPass: text('imap_pass').notNull(),
+  smtpHost: text('smtp_host').notNull(),
+  smtpPort: integer('smtp_port').notNull().default(587),
+  smtpSecure: integer('smtp_secure').notNull().default(0),
+  smtpUser: text('smtp_user').notNull(),
+  smtpPass: text('smtp_pass').notNull(),
+  fromEmail: text('from_email').notNull(),
+  createdAt: integer('created_at').notNull().default(sql`(cast(unixepoch() as integer))`),
+  updatedAt: integer('updated_at').notNull().default(sql`(cast(unixepoch() as integer))`),
+});
+
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: integer('created_at').notNull().default(sql`(cast(unixepoch() as integer))`),
+});
+
+export type User = typeof users.$inferSelect;
+export type UserCredential = typeof userCredentials.$inferSelect;
+export type Session = typeof sessions.$inferSelect;
+
+</code>
+
+backend/src/db/migrate.ts:
+<code>
+import { createClient } from '@libsql/client';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dbPath = process.env.DATABASE_URL || `file:${path.join(__dirname, '../../data/quackmail.db')}`;
+
+// Ensure data directory exists
+const dataDir = path.dirname(dbPath.replace('file:', ''));
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const client = createClient({ url: dbPath });
+
+async function runMigrations() {
+  try {
+    console.log('Setting up database...');
+    
+    // Execute migration SQL statements one at a time
+    const statements = [
+      `CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (cast(unixepoch() as integer)),
+        updated_at INTEGER NOT NULL DEFAULT (cast(unixepoch() as integer))
+      )`,
+      
+      `CREATE TABLE IF NOT EXISTS user_credentials (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT NOT NULL,
+        imap_host TEXT NOT NULL,
+        imap_port INTEGER NOT NULL DEFAULT 993,
+        imap_secure INTEGER NOT NULL DEFAULT 1,
+        imap_user TEXT NOT NULL,
+        imap_pass TEXT NOT NULL,
+        smtp_host TEXT NOT NULL,
+        smtp_port INTEGER NOT NULL DEFAULT 587,
+        smtp_secure INTEGER NOT NULL DEFAULT 0,
+        smtp_user TEXT NOT NULL,
+        smtp_pass TEXT NOT NULL,
+        from_email TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (cast(unixepoch() as integer)),
+        updated_at INTEGER NOT NULL DEFAULT (cast(unixepoch() as integer)),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      
+      `CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (cast(unixepoch() as integer)),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    ];
+
+    for (const statement of statements) {
+      try {
+        await client.execute(statement);
+        console.log('✓ Created table');
+      } catch (err: any) {
+        if (err.message?.includes('already exists')) {
+          console.log('✓ Table already exists');
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    console.log('\nDatabase setup completed!');
+    process.exit(0);
+  } catch (error) {
+    console.error('Setup failed:', error);
+    process.exit(1);
+  }
+}
+
+runMigrations();
+
+</code>
+
+backend/src/db/index.ts:
+<code>
+import { drizzle } from 'drizzle-orm/libsql';
+import { createClient } from '@libsql/client';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import * as schema from './schema.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dbPath = process.env.DATABASE_URL || `file:${path.join(__dirname, '../../data/quackmail.db')}`;
+
+// Ensure data directory exists
+import fs from 'fs';
+const dataDir = path.dirname(dbPath.replace('file:', ''));
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const client = createClient({ url: dbPath });
+
+export const db = drizzle(client, { schema });
+
+export * from './schema.js';
+
+</code>
+
+backend/src/services/emailServiceFactory.ts:
+<code>
+import { ImapFlow } from 'imapflow';
+import nodemailer from 'nodemailer';
+import { simpleParser, ParsedMail } from 'mailparser';
+import { authService } from './authService.js';
+
+export interface EmailMessage {
+  id: string;
+  subject: string;
+  from: string;
+  to: string[];
+  date: string;
+  bodyHtml: string;
+  bodyText?: string;
+  folder: string;
+  unread: boolean;
+  uid: number;
+}
+
+export interface EmailFolder {
+  name: string;
+  count: number;
+}
+
+export interface SendEmailData {
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
+}
+
+class UserEmailService {
+  private userId: string;
+  private imapClient: ImapFlow | null = null;
+  private smtpTransporter: nodemailer.Transporter | null = null;
+  private connected = false;
+  private imapConfig: any;
+  private smtpConfig: any;
+  private fromEmail: string;
+
+  constructor(userId: string, imapConfig: any, smtpConfig: any, fromEmail: string) {
+    this.userId = userId;
+    this.imapConfig = imapConfig;
+    this.smtpConfig = smtpConfig;
+    this.fromEmail = fromEmail;
+    this.initializeTransporter();
+  }
+
+  private initializeTransporter() {
+    this.smtpTransporter = nodemailer.createTransport({
+      host: this.smtpConfig.host,
+      port: this.smtpConfig.port,
+      secure: this.smtpConfig.secure,
+      auth: {
+        user: this.smtpConfig.user,
+        pass: this.smtpConfig.pass,
+      },
+    });
+  }
+
+  async connect(): Promise<void> {
+    if (this.connected && this.imapClient) {
+      return;
+    }
+
+    try {
+      this.imapClient = new ImapFlow({
+        host: this.imapConfig.host,
+        port: this.imapConfig.port,
+        secure: this.imapConfig.secure,
+        auth: {
+          user: this.imapConfig.user,
+          pass: this.imapConfig.pass,
+        },
+        logger: false,
+      });
+
+      await this.imapClient.connect();
+      this.connected = true;
+      console.log(`IMAP connection established for user ${this.userId}`);
+    } catch (error) {
+      console.error('IMAP connection failed:', error);
+      throw new Error(`Failed to connect to email server: ${(error as Error).message}`);
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.imapClient && this.connected) {
+      await this.imapClient.close();
+      this.connected = false;
+      this.imapClient = null;
+      console.log(`IMAP connection closed for user ${this.userId}`);
+    }
+  }
+
+  async getFolders(): Promise<EmailFolder[]> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      const folders = await this.imapClient.list();
+
+      const folderPromises = folders.map(async (folder) => {
+        try {
+          const status = await this.imapClient!.status(folder.path, { unseen: true });
+          return {
+            name: folder.path,
+            count: status.unseen || 0,
+          };
+        } catch (statusError) {
+          console.warn(`Could not get status for folder ${folder.path}:`, statusError);
+          return {
+            name: folder.path,
+            count: 0,
+          };
+        }
+      });
+
+      return await Promise.all(folderPromises);
+    } catch (error) {
+      console.error('Failed to fetch folders:', error);
+      throw new Error(`Failed to fetch email folders: ${(error as Error).message}`);
+    }
+  }
+
+  async getEmails(folder: string = 'INBOX', page: number = 1, limit: number = 20): Promise<EmailMessage[]> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      await this.imapClient.mailboxOpen(folder);
+      const mailbox = this.imapClient.mailbox;
+
+      if (!mailbox) {
+        throw new Error(`Mailbox ${folder} not found`);
+      }
+
+      const totalMessages = mailbox.exists;
+      const start = Math.max(1, totalMessages - (page * limit) + 1);
+      const end = Math.max(1, totalMessages - ((page - 1) * limit));
+
+      if (start > end) {
+        return [];
+      }
+
+      const range = `${start}:${end}`;
+      const messages = this.imapClient.fetch(range, {
+        uid: true,
+        flags: true,
+        envelope: true,
+        bodyStructure: true,
+        source: true,
+      });
+
+      const emails: EmailMessage[] = [];
+
+      for await (const message of messages) {
+        try {
+          let bodyHtml = '';
+          let bodyText = '';
+
+          if (message.source) {
+            const parsed: ParsedMail = await simpleParser(message.source);
+
+            if (parsed.html) {
+              bodyHtml = typeof parsed.html === 'string' ? parsed.html : parsed.html.toString();
+            }
+
+            if (parsed.text) {
+              bodyText = typeof parsed.text === 'string' ? parsed.text : parsed.text.toString();
+            }
+
+            if (!bodyHtml && bodyText) {
+              bodyHtml = bodyText.replace(/\n/g, '<br>');
+            }
+          }
+
+          const email: EmailMessage = {
+            id: String(message.uid),
+            subject: message.envelope?.subject || '(No Subject)',
+            from: message.envelope?.from?.[0]?.address || 'Unknown',
+            to: message.envelope?.to?.map(addr => addr.address).filter((addr): addr is string => Boolean(addr)) || [],
+            date: message.envelope?.date?.toISOString() || new Date().toISOString(),
+            bodyHtml: bodyHtml || '(No content)',
+            bodyText,
+            folder,
+            unread: !message.flags?.has('\\Seen'),
+            uid: message.uid,
+          };
+
+          emails.push(email);
+        } catch (parseError) {
+          console.error(`Failed to parse message ${message.uid}:`, parseError);
+        }
+      }
+
+      emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      return emails;
+    } catch (error) {
+      console.error('Failed to fetch emails:', error);
+      throw new Error(`Failed to fetch emails: ${(error as Error).message}`);
+    }
+  }
+
+  async getEmail(uid: number, folder: string = 'INBOX'): Promise<EmailMessage | null> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      await this.imapClient.mailboxOpen(folder);
+      const mailbox = this.imapClient.mailbox;
+
+      if (!mailbox) {
+        throw new Error(`Mailbox ${folder} not found`);
+      }
+
+      const messages = this.imapClient.fetch(`${uid}`, {
+        uid: true,
+        flags: true,
+        envelope: true,
+        source: true,
+      });
+
+      for await (const message of messages) {
+        let bodyHtml = '';
+        let bodyText = '';
+
+        if (message.source) {
+          const parsed: ParsedMail = await simpleParser(message.source);
+
+          if (parsed.html) {
+            bodyHtml = typeof parsed.html === 'string' ? parsed.html : parsed.html.toString();
+          }
+
+          if (parsed.text) {
+            bodyText = typeof parsed.text === 'string' ? parsed.text : parsed.text.toString();
+          }
+
+          if (!bodyHtml && bodyText) {
+            bodyHtml = bodyText.replace(/\n/g, '<br>');
+          }
+        }
+
+        return {
+          id: String(message.uid),
+          subject: message.envelope?.subject || '(No Subject)',
+          from: message.envelope?.from?.[0]?.address || 'Unknown',
+          to: message.envelope?.to?.map(addr => addr.address).filter((addr): addr is string => Boolean(addr)) || [],
+          date: message.envelope?.date?.toISOString() || new Date().toISOString(),
+          bodyHtml: bodyHtml || '(No content)',
+          bodyText,
+          folder,
+          unread: !message.flags?.has('\\Seen'),
+          uid: message.uid,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch email:', error);
+      throw new Error(`Failed to fetch email: ${(error as Error).message}`);
+    }
+  }
+
+  async sendEmail(data: SendEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.smtpTransporter) {
+      throw new Error('SMTP transporter not initialized');
+    }
+
+    try {
+      const mailOptions = {
+        from: this.fromEmail,
+        to: data.to,
+        cc: data.cc,
+        bcc: data.bcc,
+        subject: data.subject,
+        html: data.bodyHtml,
+        text: data.bodyText,
+        attachments: data.attachments,
+      };
+
+      const info = await this.smtpTransporter.sendMail(mailOptions);
+
+      console.log('Email sent successfully:', info.messageId);
+      return {
+        success: true,
+        messageId: info.messageId,
+      };
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      return {
+        success: false,
+        error: (error as Error).message,
+      };
+    }
+  }
+
+  async markAsRead(uid: number, folder: string = 'INBOX'): Promise<void> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      await this.imapClient.messageFlagsAdd(`${uid}`, ['\\Seen'], { uid: true });
+    } catch (error) {
+      console.error('Failed to mark email as read:', error);
+      throw new Error(`Failed to mark email as read: ${(error as Error).message}`);
+    }
+  }
+
+  async deleteEmail(uid: number, folder: string = 'INBOX'): Promise<void> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      await this.imapClient.messageFlagsAdd(`${uid}`, ['\\Deleted'], { uid: true });
+      await this.imapClient.expunge();
+    } catch (error) {
+      console.error('Failed to delete email:', error);
+      throw new Error(`Failed to delete email: ${(error as Error).message}`);
+    }
+  }
+}
+
+// Service factory with in-memory caching
+const userServiceCache = new Map<string, UserEmailService>();
+
+export async function getUserEmailService(userId: string): Promise<UserEmailService> {
+  if (userServiceCache.has(userId)) {
+    return userServiceCache.get(userId)!;
+  }
+
+  try {
+    const creds = await authService.getUserCredentials(userId);
+
+    const imapConfig = {
+      host: creds.imapHost,
+      port: creds.imapPort,
+      secure: creds.imapSecure === 1,
+      user: creds.imapUser,
+      pass: creds.imapPass,
+    };
+
+    const smtpConfig = {
+      host: creds.smtpHost,
+      port: creds.smtpPort,
+      secure: creds.smtpSecure === 1,
+      user: creds.smtpUser,
+      pass: creds.smtpPass,
+    };
+
+    const service = new UserEmailService(userId, imapConfig, smtpConfig, creds.fromEmail);
+    userServiceCache.set(userId, service);
+
+    return service;
+  } catch (error) {
+    throw new Error(`Failed to initialize email service for user ${userId}: ${(error as Error).message}`);
+  }
+}
+
+</code>
+
+backend/src/services/authService.ts:
+<code>
+import { db, users, sessions, userCredentials } from '../db/index.js';
+import { eq } from 'drizzle-orm';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_EXPIRY = '7d';
+
+interface LoginPayload {
+  email: string;
+  password: string;
+  imapHost?: string;
+  imapPort?: number;
+  imapSecure?: boolean;
+  imapUser?: string;
+  imapPass?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  smtpUser?: string;
+  smtpPass?: string;
+  fromEmail?: string;
+}
+
+interface AuthResponse {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+  };
+}
+
+export const authService = {
+  async register(payload: LoginPayload): Promise<AuthResponse> {
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, payload.email))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      throw new Error('User already exists');
+    }
+
+    // Hash password
+    const hashedPassword = this.hashPassword(payload.password);
+
+    // Create user
+    const result = await db.insert(users).values({
+      email: payload.email,
+      password: hashedPassword,
+    }).returning();
+
+    const newUser = result[0];
+
+    // Create user credentials if provided
+    if (
+      payload.imapHost &&
+      payload.imapUser &&
+      payload.imapPass &&
+      payload.smtpHost &&
+      payload.smtpUser &&
+      payload.smtpPass &&
+      payload.fromEmail
+    ) {
+      await db.insert(userCredentials).values({
+        userId: newUser.id,
+        imapHost: payload.imapHost,
+        imapPort: payload.imapPort || 993,
+        imapSecure: payload.imapSecure ? 1 : 0,
+        imapUser: payload.imapUser,
+        imapPass: payload.imapPass,
+        smtpHost: payload.smtpHost,
+        smtpPort: payload.smtpPort || 587,
+        smtpSecure: payload.smtpSecure ? 1 : 0,
+        smtpUser: payload.smtpUser,
+        smtpPass: payload.smtpPass,
+        fromEmail: payload.fromEmail,
+      });
+    }
+
+    // Create session
+    const token = this.generateToken(newUser.id);
+    await this.createSession(newUser.id, token);
+
+    return {
+      token,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+      },
+    };
+  },
+
+  async login(email: string, password: string): Promise<AuthResponse> {
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (userResult.length === 0) { 
+      throw new Error('Invalid credentials');
+    }
+
+    const user = userResult[0];
+
+    // Verify password
+    if (!this.verifyPassword(password, user.password)) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Create session
+    const token = this.generateToken(user.id);
+    await this.createSession(user.id, token);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    };
+  },
+
+  async logout(token: string): Promise<void> {
+    await db.delete(sessions).where(eq(sessions.token, token));
+  },
+
+  async verifyToken(token: string): Promise<{ userId: string }> {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+      
+      // Check if session exists and hasn't expired
+      const session = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.token, token))
+        .limit(1);
+
+      if (session.length === 0) {
+        throw new Error('Session not found');
+      }
+
+      if (session[0].expiresAt < Math.floor(Date.now() / 1000)) {
+        throw new Error('Session expired');
+      }
+
+      return decoded;
+    } catch (error) {
+      throw new Error('Invalid token');
+    }
+  },
+
+  async getUserCredentials(userId: string) {
+    const creds = await db
+      .select()
+      .from(userCredentials)
+      .where(eq(userCredentials.userId, userId))
+      .limit(1);
+
+    if (creds.length === 0) {
+      throw new Error('User credentials not found');
+    }
+
+    return creds[0];
+  },
+
+  async updateUserCredentials(userId: string, payload: Partial<LoginPayload>) {
+    const updates: any = {};
+
+    if (payload.imapHost) updates.imapHost = payload.imapHost;
+    if (payload.imapPort) updates.imapPort = payload.imapPort;
+    if (payload.imapSecure !== undefined) updates.imapSecure = payload.imapSecure ? 1 : 0;
+    if (payload.imapUser) updates.imapUser = payload.imapUser;
+    if (payload.imapPass) updates.imapPass = payload.imapPass;
+    if (payload.smtpHost) updates.smtpHost = payload.smtpHost;
+    if (payload.smtpPort) updates.smtpPort = payload.smtpPort;
+    if (payload.smtpSecure !== undefined) updates.smtpSecure = payload.smtpSecure ? 1 : 0;
+    if (payload.smtpUser) updates.smtpUser = payload.smtpUser;
+    if (payload.smtpPass) updates.smtpPass = payload.smtpPass;
+    if (payload.fromEmail) updates.fromEmail = payload.fromEmail;
+
+    if (Object.keys(updates).length === 0) {
+      throw new Error('No updates provided');
+    }
+
+    updates.updatedAt = Math.floor(Date.now() / 1000);
+
+    return await db
+      .update(userCredentials)
+      .set(updates)
+      .where(eq(userCredentials.userId, userId));
+  },
+
+  generateToken(userId: string): string {
+    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+  },
+
+  async createSession(userId: string, token: string): Promise<void> {
+    const expiresAt = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
+
+    await db.insert(sessions).values({
+      userId,
+      token,
+      expiresAt,
+    });
+  },
+
+  hashPassword(password: string): string {
+    return crypto.createHash('sha256').update(password).digest('hex');
+  },
+
+  verifyPassword(password: string, hash: string): boolean {
+    return crypto.createHash('sha256').update(password).digest('hex') === hash;
+  },
+};
+
+</code>
+
+backend/src/index.ts:
+<code>
+import { Hono } from 'hono'
+import { serve } from '@hono/node-server'
+import { cors } from 'hono/cors'
+import { authService } from './services/authService.js'
+import { getUserEmailService } from './services/emailServiceFactory.js'
+import { authMiddleware } from './middleware/auth.js'
+
+const app = new Hono()
+app.use('/api/*', cors())
+
+// Public Auth Routes
+app.post('/api/auth/register', async (c) => {
+  try {
+    const body = await c.req.json()
+
+    const result = await authService.register({
+      email: body.email,
+      password: body.password,
+      imapHost: body.imapHost,
+      imapPort: body.imapPort,
+      imapSecure: body.imapSecure,
+      imapUser: body.imapUser,
+      imapPass: body.imapPass,
+      smtpHost: body.smtpHost,
+      smtpPort: body.smtpPort,
+      smtpSecure: body.smtpSecure,
+      smtpUser: body.smtpUser,
+      smtpPass: body.smtpPass,
+      fromEmail: body.fromEmail,
+    })
+
+    return c.json(result, 201)
+  } catch (error) {
+    console.error('Registration failed:', error)
+    return c.json({ error: (error as Error).message }, 400)
+  }
+})
+
+app.post('/api/auth/login', async (c) => {
+  try {
+    const body = await c.req.json()
+
+    if (!body.email || !body.password) {
+      return c.json({ error: 'Email and password required' }, 400)
+    }
+
+    const result = await authService.login(body.email, body.password)
+
+    return c.json(result)
+  } catch (error) {
+    console.error('Login failed:', error)
+    return c.json({ error: (error as Error).message }, 401)
+  }
+})
+
+// Protected Routes
+app.use('/api/messages*', authMiddleware)
+app.use('/api/folders*', authMiddleware)
+app.use('/api/compose*', authMiddleware)
+app.use('/api/user*', authMiddleware)
+
+app.get('/api/user/profile', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    // Fetch user from DB
+    return c.json({ userId })
+  } catch (error) {
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.get('/api/user/credentials', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const creds = await authService.getUserCredentials(userId)
+    
+    // Don't return passwords
+    const { imapPass, smtpPass, ...safeCreds } = creds
+    return c.json(safeCreds)
+  } catch (error) {
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.put('/api/user/credentials', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const body = await c.req.json()
+
+    await authService.updateUserCredentials(userId, body)
+    
+    const creds = await authService.getUserCredentials(userId)
+    const { imapPass, smtpPass, ...safeCreds } = creds
+    
+    return c.json(safeCreds)
+  } catch (error) {
+    console.error('Failed to update credentials:', error)
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.post('/api/auth/logout', async (c: any) => {
+  try {
+    const token = c.get('token') as string
+    await authService.logout(token)
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+// Email Routes
+app.get('/api/messages', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const emailService = await getUserEmailService(userId)
+
+    const folder = c.req.query('folder') || 'INBOX'
+    const page = parseInt(c.req.query('page') || '1')
+    const limit = parseInt(c.req.query('limit') || '20')
+
+    const emails = await emailService.getEmails(folder, page, limit)
+    return c.json(emails)
+  } catch (error) {
+    console.error('Failed to fetch messages:', error)
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.get('/api/messages/:id', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const emailService = await getUserEmailService(userId)
+
+    const id = c.req.param('id')
+    const folder = c.req.query('folder') || 'INBOX'
+    const uid = parseInt(id)
+
+    if (isNaN(uid)) {
+      return c.json({ error: 'Invalid email ID' }, 400)
+    }
+
+    const email = await emailService.getEmail(uid, folder)
+    if (!email) {
+      return c.json({ error: 'Email not found' }, 404)
+    }
+    return c.json(email)
+  } catch (error) {
+    console.error('Failed to fetch email:', error)
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.get('/api/folders', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const emailService = await getUserEmailService(userId)
+
+    const folders = await emailService.getFolders()
+    return c.json(folders)
+  } catch (error) {
+    console.error('Failed to fetch folders:', error)
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.post('/api/compose', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const emailService = await getUserEmailService(userId)
+    const body = await c.req.json()
+
+    const emailData = {
+      to: body.to || [],
+      cc: body.cc,
+      bcc: body.bcc,
+      subject: body.subject || '',
+      bodyHtml: body.body || '',
+      bodyText: body.bodyText,
+      attachments: body.attachments,
+    }
+
+    const result = await emailService.sendEmail(emailData)
+
+    if (result.success) {
+      return c.json({
+        success: true,
+        message: 'Email sent successfully',
+        messageId: result.messageId
+      })
+    } else {
+      return c.json({
+        success: false,
+        error: result.error
+      }, 500)
+    }
+  } catch (error) {
+    console.error('Failed to send email:', error)
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.put('/api/messages/:id/read', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const emailService = await getUserEmailService(userId)
+
+    const id = c.req.param('id')
+    const folder = c.req.query('folder') || 'INBOX'
+    const uid = parseInt(id)
+
+    if (isNaN(uid)) {
+      return c.json({ error: 'Invalid email ID' }, 400)
+    }
+
+    await emailService.markAsRead(uid, folder)
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to mark email as read:', error)
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+app.delete('/api/messages/:id', async (c: any) => {
+  try {
+    const userId = c.get('userId') as string
+    const emailService = await getUserEmailService(userId)
+
+    const id = c.req.param('id')
+    const folder = c.req.query('folder') || 'INBOX'
+    const uid = parseInt(id)
+
+    if (isNaN(uid)) {
+      return c.json({ error: 'Invalid email ID' }, 400)
+    }
+
+    await emailService.deleteEmail(uid, folder)
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to delete email:', error)
+    return c.json({ error: (error as Error).message }, 500)
+  }
+})
+
+serve({
+  fetch: app.fetch,
+  port: 3001
+}, (info) => {
+  console.log(`Server is running on http://localhost:${info.port}`)
+})
+
+</code>
+
+backend/src/emailService.ts:
+<code>
+import { ImapFlow } from 'imapflow';
+import nodemailer from 'nodemailer';
+import { simpleParser, ParsedMail } from 'mailparser';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+export interface EmailMessage {
+  id: string;
+  subject: string;
+  from: string;
+  to: string[];
+  date: string;
+  bodyHtml: string;
+  bodyText?: string;
+  folder: string;
+  unread: boolean;
+  uid: number;
+}
+
+export interface EmailFolder {
+  name: string;
+  count: number;
+}
+
+export interface SendEmailData {
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
+}
+
+export class EmailService {
+  private imapClient: ImapFlow | null = null;
+  private smtpTransporter: nodemailer.Transporter | null = null;
+  private connected = false;
+
+  constructor() {
+    this.initializeTransporter();
+  }
+
+  private initializeTransporter() {
+    this.smtpTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+
+  async connect(): Promise<void> {
+    if (this.connected && this.imapClient) {
+      return;
+    }
+
+    try {
+      this.imapClient = new ImapFlow({
+        host: process.env.IMAP_HOST || '',
+        port: parseInt(process.env.IMAP_PORT || '993'),
+        secure: process.env.IMAP_SECURE === 'true',
+        auth: {
+          user: process.env.EMAIL_USER!,
+          pass: process.env.EMAIL_PASS!,
+        },
+        logger: false, // Disable verbose logging in production
+      });
+
+      await this.imapClient.connect();
+      this.connected = true;
+      console.log('IMAP connection established');
+    } catch (error) {
+      console.error('IMAP connection failed:', error);
+      throw new Error(`Failed to connect to email server: ${(error as Error).message}`);
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.imapClient && this.connected) {
+      this.imapClient.close();
+      this.connected = false;
+      this.imapClient = null;
+      console.log('IMAP connection closed');
+    }
+  }
+
+  async getFolders(): Promise<EmailFolder[]> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      const folders = await this.imapClient.list();
+
+      const folderPromises = folders.map(async (folder) => {
+        try {
+          // Get status for each mailbox to get unread count
+          const status = await this.imapClient!.status(folder.path, { unseen: true });
+          return {
+            name: folder.path,
+            count: status.unseen || 0,
+          };
+        } catch (statusError) {
+          // If status fails, return folder with 0 count
+          console.warn(`Could not get status for folder ${folder.path}:`, statusError);
+          return {
+            name: folder.path,
+            count: 0,
+          };
+        }
+      });
+
+      return await Promise.all(folderPromises);
+    } catch (error) {
+      console.error('Failed to fetch folders:', error);
+      throw new Error(`Failed to fetch email folders: ${(error as Error).message}`);
+    }
+  }
+
+  async getEmails(folder: string = 'INBOX', page: number = 1, limit: number = 20): Promise<EmailMessage[]> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      // Open the mailbox
+      await this.imapClient.mailboxOpen(folder);
+      const mailbox = this.imapClient.mailbox;
+
+      if (!mailbox) {
+        throw new Error(`Mailbox ${folder} not found`);
+      }
+
+      // Calculate range for pagination (newest first)
+      const totalMessages = mailbox.exists;
+      const start = Math.max(1, totalMessages - (page * limit) + 1);
+      const end = Math.max(1, totalMessages - ((page - 1) * limit));
+
+      if (start > end) {
+        return []; // No messages in this range
+      }
+
+      const range = `${start}:${end}`;
+      const messages = this.imapClient.fetch(range, {
+        uid: true,
+        flags: true,
+        envelope: true,
+        bodyStructure: true,
+        source: true,
+      });
+
+      const emails: EmailMessage[] = [];
+
+      for await (const message of messages) {
+        try {
+          let bodyHtml = '';
+          let bodyText = '';
+
+          // Parse the email content
+          if (message.source) {
+            const parsed: ParsedMail = await simpleParser(message.source);
+
+            // Extract HTML content
+            if (parsed.html) {
+              bodyHtml = typeof parsed.html === 'string' ? parsed.html : parsed.html.toString();
+            }
+
+            // Extract text content as fallback
+            if (parsed.text) {
+              bodyText = typeof parsed.text === 'string' ? parsed.text : parsed.text.toString();
+            }
+
+            // Use text content if HTML is not available
+            if (!bodyHtml && bodyText) {
+              bodyHtml = bodyText.replace(/\n/g, '<br>');
+            }
+          }
+
+          const email: EmailMessage = {
+            id: String(message.uid),
+            subject: message.envelope?.subject || '(No Subject)',
+            from: message.envelope?.from?.[0]?.address || 'Unknown',
+            to: message.envelope?.to?.map(addr => addr.address).filter((addr): addr is string => Boolean(addr)) || [],
+            date: message.envelope?.date?.toISOString() || new Date().toISOString(),
+            bodyHtml: bodyHtml || '(No content)',
+            bodyText,
+            folder,
+            unread: !message.flags?.has('\\Seen'),
+            uid: message.uid,
+          };
+
+          emails.push(email);
+        } catch (parseError) {
+          console.error(`Failed to parse message ${message.uid}:`, parseError);
+          // Continue with other messages
+        }
+      }
+
+      // Sort by date (newest first)
+      emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      return emails;
+    } catch (error) {
+      console.error('Failed to fetch emails:', error);
+      throw new Error(`Failed to fetch emails: ${(error as Error).message}`);
+    }
+  }
+
+  async getEmail(uid: number, folder: string = 'INBOX'): Promise<EmailMessage | null> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      // Open the mailbox
+      await this.imapClient.mailboxOpen(folder);
+      const mailbox = this.imapClient.mailbox;
+
+      if (!mailbox) {
+        throw new Error(`Mailbox ${folder} not found`);
+      }
+
+      const messages = this.imapClient.fetch(`${uid}`, {
+        uid: true,
+        flags: true,
+        envelope: true,
+        source: true,
+      });
+
+      for await (const message of messages) {
+        let bodyHtml = '';
+        let bodyText = '';
+
+        // Parse the email content
+        if (message.source) {
+          const parsed: ParsedMail = await simpleParser(message.source);
+
+          if (parsed.html) {
+            bodyHtml = typeof parsed.html === 'string' ? parsed.html : parsed.html.toString();
+          }
+
+          if (parsed.text) {
+            bodyText = typeof parsed.text === 'string' ? parsed.text : parsed.text.toString();
+          }
+
+          if (!bodyHtml && bodyText) {
+            bodyHtml = bodyText.replace(/\n/g, '<br>');
+          }
+        }
+
+        return {
+          id: String(message.uid),
+          subject: message.envelope?.subject || '(No Subject)',
+          from: message.envelope?.from?.[0]?.address || 'Unknown',
+          to: message.envelope?.to?.map(addr => addr.address).filter((addr): addr is string => Boolean(addr)) || [],
+          date: message.envelope?.date?.toISOString() || new Date().toISOString(),
+          bodyHtml: bodyHtml || '(No content)',
+          bodyText,
+          folder,
+          unread: !message.flags?.has('\\Seen'),
+          uid: message.uid,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch email:', error);
+      throw new Error(`Failed to fetch email: ${(error as Error).message}`);
+    }
+  }
+
+  async sendEmail(data: SendEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.smtpTransporter) {
+      throw new Error('SMTP transporter not initialized');
+    }
+
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: data.to,
+        cc: data.cc,
+        bcc: data.bcc,
+        subject: data.subject,
+        html: data.bodyHtml,
+        text: data.bodyText,
+        attachments: data.attachments,
+      };
+
+      const info = await this.smtpTransporter.sendMail(mailOptions);
+
+      console.log('Email sent successfully:', info.messageId);
+      return {
+        success: true,
+        messageId: info.messageId,
+      };
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      return {
+        success: false,
+        error: (error as Error).message,
+      };
+    }
+  }
+
+  async markAsRead(uid: number, folder: string = 'INBOX'): Promise<void> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      await this.imapClient.messageFlagsAdd(`${uid}`, ['\\Seen'], { uid: true });
+    } catch (error) {
+      console.error('Failed to mark email as read:', error);
+      throw new Error(`Failed to mark email as read: ${(error as Error).message}`);
+    }
+  }
+
+  async deleteEmail(uid: number, folder: string = 'INBOX'): Promise<void> {
+    await this.connect();
+
+    if (!this.imapClient) {
+      throw new Error('IMAP client not initialized');
+    }
+
+    try {
+      await this.imapClient.messageFlagsAdd(`${uid}`, ['\\Deleted'], { uid: true });
+      await this.imapClient.expunge();
+    } catch (error) {
+      console.error('Failed to delete email:', error);
+      throw new Error(`Failed to delete email: ${(error as Error).message}`);
+    }
+  }
+}
+
+// Export singleton instance
+export const emailService = new EmailService();
+
+</code>
+
+backend/drizzle/meta/0000_snapshot.json:
+<code>
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "f5c1422f-5fdf-4811-be42-4c0b07431e8e",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(lower(hex(randomblob(16))))"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch() as integer))"
+        }
+      },
+      "indexes": {
+        "sessions_token_unique": {
+          "name": "sessions_token_unique",
+          "columns": [
+            "token"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "sessions_user_id_users_id_fk": {
+          "name": "sessions_user_id_users_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "user_credentials": {
+      "name": "user_credentials",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(lower(hex(randomblob(16))))"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imap_host": {
+          "name": "imap_host",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imap_port": {
+          "name": "imap_port",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 993
+        },
+        "imap_secure": {
+          "name": "imap_secure",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "imap_user": {
+          "name": "imap_user",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imap_pass": {
+          "name": "imap_pass",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "smtp_host": {
+          "name": "smtp_host",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "smtp_port": {
+          "name": "smtp_port",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 587
+        },
+        "smtp_secure": {
+          "name": "smtp_secure",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "smtp_user": {
+          "name": "smtp_user",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "smtp_pass": {
+          "name": "smtp_pass",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_email": {
+          "name": "from_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch() as integer))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch() as integer))"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_credentials_user_id_users_id_fk": {
+          "name": "user_credentials_user_id_users_id_fk",
+          "tableFrom": "user_credentials",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(lower(hex(randomblob(16))))"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch() as integer))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch() as integer))"
+        }
+      },
+      "indexes": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}
+</code>
+
+backend/drizzle/meta/_journal.json:
+<code>
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1762729284281,
+      "tag": "0000_wakeful_lyja",
+      "breakpoints": true
+    }
+  ]
+}
+</code>
+
+backend/drizzle/0000_wakeful_lyja.sql:
+<code>
+CREATE TABLE `sessions` (
+	`id` text PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))) NOT NULL,
+	`user_id` text NOT NULL,
+	`token` text NOT NULL,
+	`expires_at` integer NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch() as integer)) NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `sessions_token_unique` ON `sessions` (`token`);--> statement-breakpoint
+CREATE TABLE `user_credentials` (
+	`id` text PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))) NOT NULL,
+	`user_id` text NOT NULL,
+	`imap_host` text NOT NULL,
+	`imap_port` integer DEFAULT 993 NOT NULL,
+	`imap_secure` integer DEFAULT 1 NOT NULL,
+	`imap_user` text NOT NULL,
+	`imap_pass` text NOT NULL,
+	`smtp_host` text NOT NULL,
+	`smtp_port` integer DEFAULT 587 NOT NULL,
+	`smtp_secure` integer DEFAULT 0 NOT NULL,
+	`smtp_user` text NOT NULL,
+	`smtp_pass` text NOT NULL,
+	`from_email` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch() as integer)) NOT NULL,
+	`updated_at` integer DEFAULT (cast(unixepoch() as integer)) NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `users` (
+	`id` text PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))) NOT NULL,
+	`email` text NOT NULL,
+	`password` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch() as integer)) NOT NULL,
+	`updated_at` integer DEFAULT (cast(unixepoch() as integer)) NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
+</code>
+
+backend/Dockerfile:
+<code>
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
+
+# Install dependencies
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN pnpm build
+
+# Expose port
+EXPOSE 3001
+
+# Start the application
+CMD ["pnpm", "start"]
+
+</code>
+
+backend/package.json:
+<code>
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "QuackMail backend API",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "tsx build src/index.ts",
+    "start": "tsx src/index.ts",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "email",
+    "api",
+    "hono"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.18.0",
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "@libsql/client": "^0.15.15",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.19.24",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.6",
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.10.4",
+    "imapflow": "^1.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "mailparser": "^3.9.0",
+    "migrator": "link:drizzle-orm/libsql/migrator",
+    "nodemailer": "^7.0.10"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^7.0.3",
+    "tsx": "^4.20.6"
+  }
+}
+
+</code>
+
+backend/tsconfig.json:
+<code>
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+
+</code>
+
+backend/.env.example:
+<code>
+# Database
+DATABASE_URL=file:./data/quackmail.db
+
+# JWT Secret
+JWT_SECRET=your-secret-key-change-in-production
+
+# Default IMAP & SMTP settings (used for all users)
+# Users will override these during registration with their own credentials
+IMAP_HOST=imap.gmail.com
+IMAP_PORT=993
+IMAP_SECURE=true
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+
+</code>
+
+backend/drizzle.config.ts:
+<code>
+import { defineConfig } from 'drizzle-kit';
+
+export default defineConfig({
+  dialect: 'sqlite',
+  schema: './src/db/schema.ts',
+  out: './drizzle',
+  dbCredentials: {
+    url: process.env.DATABASE_URL || 'file:./data/quackmail.db',
+  },
+});
+
+</code>
+
+memory-bank/techContext.md:
+<code>
+# Tech Context: QuackMail Email Integration
+
+## Technologies Used
+
+### Backend Stack
+- **Runtime**: Node.js with TypeScript
+- **Framework**: Hono (modern web framework for Cloudflare Workers/Edge runtime)
+- **Build Tool**: tsx (TypeScript execution and bundling)
+- **Package Manager**: pnpm (efficient package management)
+
+### Email Integration Libraries
+- **IMAP Client**: imapflow (modern, promise-based IMAP library)
+- **SMTP Client**: nodemailer (comprehensive email sending library)
+- **Email Parser**: mailparser (robust email content parsing)
+- **Environment**: dotenv (environment variable management)
+
+### Frontend Stack
+- **Framework**: Next.js 14+ with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Custom components with shadcn/ui
+- **State Management**: React Query (TanStack Query) for server state
+- **Build Tool**: Next.js built-in bundler
+
+### Development Tools
+- **Version Control**: Git
+- **Containerization**: Docker with docker-compose
+- **Code Quality**: ESLint configuration
+- **Type Checking**: TypeScript strict mode
+
+## Development Setup
+
+### Environment Requirements
+- **Node.js**: Version 18+ (LTS recommended)
+- **pnpm**: Version 8+ for package management
+- **Docker**: For containerized development/testing
+
+### Project Structure
+```
+quackmail/
+├── backend/                 # Hono API server
+│   ├── src/
+│   │   ├── index.ts        # Main server file
+│   │   └── emailService.ts # Email service abstraction
+│   ├── package.json
+│   └── .env               # Environment variables
+├── frontend/               # Next.js client
+│   ├── src/
+│   │   ├── app/           # App router pages
+│   │   └── components/    # React components
+│   └── package.json
+├── docker-compose.yml      # Development environment
+└── memory-bank/           # Project documentation
+```
+
+## Technical Constraints
+
+### Email Protocol Limitations
+- **IMAP Compatibility**: Must support IMAP4rev1 standard
+- **SMTP Requirements**: SMTP AUTH and STARTTLS support required
+- **Connection Limits**: Respect server connection limits and rate limits
+- **Message Size**: Handle large email attachments efficiently
+
+### Security Constraints
+- **Credential Storage**: Environment variables only, no database storage
+- **Connection Security**: TLS/SSL encryption mandatory for all connections
+- **Input Validation**: Sanitize all user inputs to prevent injection attacks
+- **Session Security**: Stateless authentication with secure token management
+
+### Performance Constraints
+- **Memory Usage**: Implement pagination to handle large mailboxes
+- **Connection Pooling**: Efficient connection reuse to reduce overhead
+- **Background Processing**: Non-blocking operations for real-time features
+- **Caching Strategy**: Balance freshness with performance optimization
+
+## Dependencies and Tool Usage Patterns
+
+### Core Dependencies
+- **imapflow**: Used for all IMAP operations (connect, fetch, monitor)
+- **nodemailer**: Used for SMTP email sending with full feature support
+- **mailparser**: Used for parsing complex email content and attachments
+- **dotenv**: Used for secure environment variable loading
+
+### Development Dependencies
+- **tsx**: Used for running TypeScript in development
+- **@types/node**: TypeScript definitions for Node.js APIs
+- **ESLint**: Code quality and consistency enforcement
+
+### Runtime Considerations
+- **Edge Runtime Compatibility**: Hono designed for edge environments
+- **ESM Modules**: Modern ES module syntax throughout
+- **Async/Await**: Promise-based asynchronous programming
+- **Type Safety**: Full TypeScript coverage for reliability
+
+</code>
+
+memory-bank/activeContext.md:
+<code>
+# Active Context: QuackMail Email Integration
+
+## Current Work Focus
+Implementing real IMAP/SMTP integration to replace mock email data in QuackMail webmail client.
+
+## Recent Changes
+- Created comprehensive memory-bank documentation structure
+- Established project brief, product context, and system patterns
+- Analyzed existing codebase structure (Hono backend, Next.js frontend)
+- Identified required dependencies (imapflow, nodemailer already present, need mailparser, dotenv)
+
+## Next Steps
+1. **Install Dependencies**: Add mailparser and dotenv to backend
+2. **Environment Setup**: Create .env file with email configuration variables
+3. **Email Service**: Create emailService.ts with IMAP/SMTP logic abstraction
+4. **API Updates**: Replace mock endpoints with real email service calls
+5. **Real-time Updates**: Implement WebSocket for live email notifications
+6. **Frontend Integration**: Add WebSocket client for reactive UI updates
+7. **Testing**: Configure test email account and verify functionality
+
+## Active Decisions and Considerations
+
+### Technical Decisions Made
+- **Service Layer**: Abstract all email logic into emailService.ts for clean separation
+- **Connection Management**: Use persistent IMAP connections with automatic reconnection
+- **Error Handling**: Centralized error handling with user-friendly messages
+- **Security**: Environment-only credential storage, no client-side persistence
+
+### Important Patterns and Preferences
+- **Async/Await**: Modern async patterns throughout the codebase
+- **TypeScript**: Full type safety for all email operations
+- **REST + WebSocket**: Hybrid API approach for efficiency and real-time updates
+- **Pagination**: Implement efficient email fetching to prevent memory issues
+
+### Learnings and Project Insights
+- **Existing Architecture**: Hono backend with React Query frontend provides solid foundation
+- **Dependencies**: imapflow and nodemailer already installed, reducing setup time
+- **UI Compatibility**: Frontend API contract can remain largely unchanged
+- **Real-time Challenge**: WebSocket integration needed for live email updates
+
+## Current Status
+- **Planning**: Complete - detailed implementation plan established
+- **Documentation**: Complete - memory-bank structure initialized
+- **Dependencies**: Partial - core libraries present, missing mailparser and dotenv
+- **Implementation**: Not started - ready to begin coding phase
+
+</code>
+
+memory-bank/progress.md:
+<code>
+# Progress: QuackMail Email Integration
+
+## What Works
+- **Project Structure**: Well-organized monorepo with backend/frontend separation
+- **Mock Email System**: Basic email UI with static data (to be replaced)
+- **UI Components**: Functional email list, view, and sidebar components
+- **API Structure**: Hono server with REST endpoints for email operations
+- **Dependencies**: Core email libraries (imapflow, nodemailer) already installed
+- **Documentation**: Comprehensive memory-bank structure established
+
+## What's Left to Build
+
+### Phase 1: Core Email Integration
+- [ ] Install missing dependencies (mailparser, dotenv)
+- [ ] Create .env configuration file with email server settings
+- [ ] Implement emailService.ts with IMAP/SMTP abstraction
+- [ ] Replace mock API endpoints with real email service calls
+- [ ] Add proper error handling for connection/authentication failures
+
+### Phase 2: Real-time Features
+- [ ] Implement WebSocket server for live email notifications
+- [ ] Add IMAP IDLE support for push notifications
+- [ ] Update frontend to handle real-time email updates
+- [ ] Implement background email synchronization
+
+### Phase 3: Advanced Features
+- [ ] Add email composition with attachments support
+- [ ] Implement reply/forward functionality
+- [ ] Add CC/BCC support for email sending
+- [ ] Support multiple email account management
+
+### Phase 4: Testing & Polish
+- [ ] Set up test email account for integration testing
+- [ ] Verify sent emails appear in Sent folder correctly
+- [ ] Test received email synchronization
+- [ ] Add comprehensive error handling and logging
+- [ ] Performance optimization and memory management
+
+## Current Status
+- **Planning**: ✅ Complete - detailed implementation plan established
+- **Documentation**: ✅ Complete - memory-bank structure fully initialized
+- **Dependencies**: ⚠️ Partial - core libraries present, missing mailparser and dotenv
+- **Implementation**: ❌ Not started - ready to begin coding phase
+- **Testing**: ❌ Not started - requires working implementation first
+
+## Known Issues
+- **No Real Email Data**: Current system only shows mock emails
+- **No Real-time Updates**: Frontend cannot receive live email notifications
+- **Missing Dependencies**: mailparser and dotenv not yet installed
+- **Environment Configuration**: No .env file configured for email servers
+- **Error Handling**: Limited error handling for email operations
+
+## Evolution of Project Decisions
+
+### Initial Architecture Decision
+**Decision**: Use service layer abstraction (emailService.ts) for clean separation of concerns
+**Rationale**: Allows easy testing, maintains single responsibility, enables future multi-account support
+**Status**: ✅ Confirmed - proceeding with implementation
+
+### IMAP Library Choice
+**Decision**: Use imapflow over traditional IMAP libraries
+**Rationale**: Modern async/await support, better TypeScript integration, active maintenance
+**Status**: ✅ Confirmed - library already installed and evaluated
+
+### SMTP Library Choice
+**Decision**: Use nodemailer for email sending
+**Rationale**: Comprehensive feature set, excellent attachment handling, widely adopted
+**Status**: ✅ Confirmed - library already installed and evaluated
+
+### Real-time Strategy
+**Decision**: Implement WebSocket + IMAP IDLE for real-time updates
+**Rationale**: WebSocket provides reliable push notifications, IMAP IDLE enables server-side event detection
+**Status**: ✅ Confirmed - architecture planned, implementation pending
+
+### Security Approach
+**Decision**: Environment-only credential storage, no database persistence
+**Rationale**: Reduces attack surface, simplifies deployment, meets security requirements
+**Status**: ✅ Confirmed - aligns with project requirements
+
+### Pagination Strategy
+**Decision**: Implement server-side pagination with configurable page sizes
+**Rationale**: Prevents memory issues with large mailboxes, improves performance
+**Status**: ✅ Confirmed - will be implemented in emailService.ts
+
+## Next Milestone
+**Target**: Complete Phase 1 (Core Email Integration) within next development session
+**Success Criteria**:
+- All dependencies installed
+- .env file configured
+- emailService.ts implemented and functional
+- API endpoints updated to use real email data
+- Basic send/receive functionality working
+
+## Risk Assessment
+**High Risk**: Email server compatibility - different providers may have varying IMAP/SMTP implementations
+**Medium Risk**: Real-time performance - WebSocket + IMAP IDLE may have connection overhead
+**Low Risk**: UI compatibility - existing React components should work with real data structure
+**Mitigation**: Start with Gmail/Outlook testing, implement connection pooling, maintain API contract compatibility
+
+</code>
+
+memory-bank/productContext.md:
+<code>
+# Product Context: QuackMail
+
+## Why This Project Exists
+QuackMail is a modern webmail client designed to provide users with a clean, efficient email experience. The current implementation uses mock data, limiting its utility to demonstration purposes. Real email integration transforms it into a fully functional email client that can compete with established webmail services.
+
+## Problems It Solves
+- **Mock Data Limitation**: Current version only shows static demo emails, preventing real usage
+- **No Real Email Access**: Users cannot read their actual emails or send messages
+- **Missing Core Functionality**: No ability to manage real mailboxes, send emails, or receive notifications
+- **Development Constraints**: Cannot test real-world email workflows or user interactions
+
+## How It Should Work
+- **Seamless Integration**: Connect to any IMAP/SMTP email provider (Gmail, Outlook, custom servers)
+- **Real-time Updates**: Push notifications when new emails arrive
+- **Secure Credentials**: Environment-based configuration with encrypted storage options
+- **Multi-account Support**: Future capability to manage multiple email accounts
+- **Modern UX**: Clean interface with efficient email management features
+
+## User Experience Goals
+- **Intuitive Interface**: Easy folder navigation, email composition, and message management
+- **Fast Performance**: Efficient IMAP fetching with pagination and background sync
+- **Reliable Delivery**: Robust SMTP sending with proper error handling
+- **Privacy Focused**: Secure credential handling with no client-side storage
+- **Responsive Design**: Works seamlessly across desktop and mobile devices
+
+</code>
+
+memory-bank/projectbrief.md:
+<code>
+# Project Brief: QuackMail Real Email Integration
+
+## Goal
+Replace all mock email data in the QuackMail webmail client with real IMAP and SMTP integration using `imapflow` for fetching emails and `nodemailer` for sending emails.
+
+## Requirements
+- Incoming Mail (IMAP): Use imapflow to connect to user's mail server, fetch folders and email metadata, support pagination and background sync, parse HTML/plaintext content using mailparser, reactive UI updates.
+- Outgoing Mail (SMTP): Use nodemailer to send emails through user's configured SMTP server, handle attachments, CC/BCC, reply/forward functionality.
+- Architecture: Abstract IMAP/SMTP logic into service layer, expose REST/WebSocket endpoints, secure session handling, support multiple accounts.
+- Environment Setup: Add .env variables for IMAP/SMTP configuration.
+- Testing: Add mock account for integration testing, verify sent emails appear in Sent and received ones sync correctly.
+
+## Output
+A working implementation where QuackMail's UI now fetches and sends real emails through IMAP/SMTP using imapflow and nodemailer, fully replacing mock data.
+
+</code>
+
+memory-bank/systemPatterns.md:
+<code>
+# System Patterns: QuackMail Email Integration
+
+## System Architecture
+
+### Backend Architecture
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Hono Server   │────│  Email Service   │────│  IMAP/SMTP      │
+│                 │    │                  │    │  Providers      │
+│ • REST API      │    │ • IMAP Client    │    │                 │
+│ • WebSocket     │    │ • SMTP Client    │    │ • Gmail         │
+│ • Auth          │    │ • Message Parser │    │ • Outlook       │
+└─────────────────┘    └──────────────────┘    │ • Custom        │
+                                               └─────────────────┘
+```
+
+### Service Layer Pattern
+- **EmailService**: Central abstraction for all email operations
+- **Connection Management**: Singleton pattern for IMAP connections
+- **Error Handling**: Centralized error handling with user-friendly messages
+- **Caching**: In-memory caching for frequently accessed data
+
+### Data Flow Patterns
+1. **Authentication**: User credentials → Environment validation → IMAP/SMTP connection
+2. **Email Fetching**: Folder selection → IMAP query → Message parsing → API response
+3. **Email Sending**: Compose data → SMTP transport → Success/failure response
+4. **Real-time Updates**: IMAP IDLE → WebSocket push → Frontend refresh
+
+## Key Technical Decisions
+
+### IMAP Implementation
+- **Library**: imapflow for modern async/await support
+- **Connection**: Persistent connection with automatic reconnection
+- **Fetching**: Paginated fetching with metadata-first approach
+- **Parsing**: mailparser for robust HTML/text content extraction
+
+### SMTP Implementation
+- **Library**: nodemailer for comprehensive email sending
+- **Transport**: Secure SMTP with TLS/SSL support
+- **Attachments**: Stream-based handling for large files
+- **Templates**: Support for HTML/plaintext email composition
+
+### Security Patterns
+- **Credential Storage**: Environment variables only
+- **Connection Security**: TLS/SSL encryption required
+- **Session Management**: Stateless API with JWT tokens
+- **Input Validation**: Sanitize all user inputs
+
+### Performance Patterns
+- **Pagination**: Limit email fetches to prevent memory issues
+- **Background Sync**: Non-blocking email synchronization
+- **Connection Pooling**: Reuse connections when possible
+- **Caching Strategy**: Cache folder structures and recent emails
+
+## Component Relationships
+
+### Email Service Dependencies
+- **imapflow**: Core IMAP client functionality
+- **nodemailer**: SMTP email sending
+- **mailparser**: Email content parsing
+- **dotenv**: Environment configuration
+
+### API Layer Dependencies
+- **Hono**: Web framework for REST/WebSocket endpoints
+- **JWT**: Authentication token management
+- **WebSocket**: Real-time push notifications
+
+### Frontend Integration
+- **React Query**: Efficient data fetching and caching
+- **WebSocket Client**: Real-time email updates
+- **TypeScript**: Type-safe API communication
+
+</code>
+
+.github/copilot-instructions.md:
+<code>
+# Copilot Instructions for QuackMail
+
+## Project Overview
+QuackMail is a multi-user email client that provides isolated IMAP/SMTP connections per user. The system consists of:
+- Next.js frontend for user interface
+- Hono.js backend API server
+- SQLite database (via Drizzle ORM)
+- Per-user IMAP/SMTP connections
+
+## Key Architecture Patterns
+
+### User Isolation Pattern
+All email operations are isolated per user:
+```typescript
+// ✅ DO: Always get email service through factory with userId
+const emailService = await getUserEmailService(userId);
+
+// ❌ DON'T: Never create email service directly
+const emailService = new UserEmailService(credentials);
+```
+
+### Authentication Flow
+JWT-based auth with database session validation:
+```typescript
+// Required on all protected routes
+app.use('/api/*', authMiddleware);
+
+// Auth middleware extracts userId from JWT
+const userId = ctx.get('userId');
+```
+
+### Database Schema Structure
+Follow established table relationships:
+- `users` ← one-to-one → `user_credentials`
+- `users` ← one-to-many → `sessions`
+
+## Critical Development Workflows
+
+### Database Updates
+1. Edit schema in `backend/src/db/schema.ts`
+2. Run migration: `pnpm run db:migrate`
+3. Check `backend/drizzle/` for generated SQL
+
+### Testing Changes
+Test new features with multiple user accounts:
+```bash
+# Create test users with different email providers
+pnpm test:setup-users
+
+# Run test suite
+pnpm test
+```
+
+### Environment Configuration
+Required `.env` variables:
+```
+JWT_SECRET=<32+ char string>
+DATABASE_URL=file:./data/quackmail.db
+```
+
+## Common Patterns
+
+### Error Handling
+Use custom error classes with HTTP status codes:
+```typescript
+// backend/src/errors.ts
+throw new UnauthorizedError("Invalid token");
+throw new BadRequestError("User already exists");
+```
+
+### Email Service Factory Pattern
+```typescript
+// ✅ DO: Use factory to get cached service
+const service = emailServiceFactory.getUserEmailService(userId);
+
+// ❌ DON'T: Create new service instances
+new EmailService(config); // Wrong!
+```
+
+### Frontend Auth Pattern
+All API requests must include token:
+```typescript
+// frontend/src/lib/api.ts
+const headers = {
+  Authorization: `Bearer ${getToken()}`
+};
+```
+
+## Integration Points
+
+### Email Provider Integration
+Support various IMAP/SMTP providers:
+- Gmail (requires app password)
+- Outlook 
+- Custom IMAP/SMTP servers
+
+See `QUICK_START.md` for provider-specific setup.
+
+### Frontend-Backend Communication
+All email operations go through protected API routes:
+```
+GET /api/messages?folder=INBOX
+GET /api/folders
+POST /api/compose
+```
+
+## Project Organization
+```
+backend/
+  src/
+    db/          # Database schema & migrations
+    services/    # Core business logic
+    middleware/  # Auth & validation
+frontend/
+  src/
+    app/        # Next.js pages
+    components/ # React components
+    lib/        # Shared utilities
+```
+
+## Common Pitfalls
+
+### Authentication
+- ❌ Don't skip token validation
+- ❌ Don't store raw passwords
+- ❌ Don't expose credentials in API responses
+
+### Email Services
+- ❌ Don't create multiple services per user
+- ❌ Don't share connections between users
+- ❌ Don't hardcode email credentials
+
+### Database
+- ❌ Don't manually edit SQLite file
+- ❌ Don't skip foreign key constraints
+- ❌ Don't expose internal IDs in APIs
+</code>
+
+package.json:
+<code>
+{
+  "name": "quackmail",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.18.0"
+}
+
+</code>
+
+docker-compose.yml:
+<code>
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:3001
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+</code>
+
+AGENTS.md:
+<code>
+# AGENTS.md - QuackMail Development Guide
+
+## Build, Lint, Test Commands
+
+**Root workspace:**
+- `pnpm install` - Install dependencies for all workspaces
+- `pnpm -r dev` - Run dev mode in all packages (backend on port 3001, frontend on port 3000)
+
+**Backend (Node.js/Hono):**
+- `pnpm --filter backend dev` - Development mode with hot reload
+- `pnpm --filter backend db:push` - Push Drizzle schema changes to SQLite
+- `pnpm --filter backend db:migrate` - Run migrations
+- `pnpm --filter backend test` - No tests configured yet
+
+**Frontend (Next.js):**
+- `pnpm --filter frontend dev` - Development mode (port 3000)
+- `pnpm --filter frontend build` - Build for production
+- `pnpm --filter frontend lint` - Run ESLint
+
+## Architecture Overview
+
+**Project structure:** pnpm workspace with two packages
+- **Backend:** Hono.js REST API (TypeScript, port 3001), Drizzle ORM, SQLite database
+- **Frontend:** Next.js 16 React app (TypeScript, port 3000), TanStack Query, Tailwind CSS
+
+**Database:** SQLite (backend/data/quackmail.db) with three main tables:
+- `users` - email, hashed password, timestamps
+- `user_credentials` - IMAP/SMTP config per user (host, port, credentials)
+- `sessions` - JWT tokens with 7-day expiry
+
+**Key services:**
+- `authService` - register, login, logout, JWT generation, token verification
+- `emailServiceFactory` - cached per-user email service instances
+- `authMiddleware` - validates Bearer JWT tokens and extracts userId
+
+**Email flow:** IMAP for reading (imapflow library), SMTP for sending (nodemailer)
+
+## Code Style & Conventions
+
+**TypeScript:**
+- Strict mode enabled (`strict: true` in tsconfig)
+- ESM imports with `.js` extensions: `import { x } from './file.js'`
+- Async/await for all async operations; error handling with try-catch
+- Types defined inline in interfaces (e.g., `LoginPayload`, `AuthResponse`)
+
+**Naming & structure:**
+- Services as export objects with methods: `export const authService = { method() {} }`
+- Route handlers receive Hono context `c`, extract userId via `c.get('userId')`
+- Error messages as simple English strings; HTTP status codes: 400 (client), 401 (auth), 404 (not found), 500 (server)
+- Database queries use Drizzle: `db.select().from(table).where(eq(col, val))`
+
+**Frontend:**
+- React 19 functional components with hooks
+- TanStack Query for data fetching (setup pending)
+- Tailwind CSS for styling with Radix UI components
+- API calls to `http://localhost:3001/api/*` with Bearer token in Authorization header
+
+**No external rule files** (no .cursorrules, CLAUDE.md, .windsurfrules, etc.)
+
+</code>
+
+API_EXAMPLES.md:
+<code>
+# QuackMail Multi-User API Examples
+
+## 1. Register a New User
+
+```bash
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "secure-password-123",
+    "imapHost": "imap.gmail.com",
+    "imapPort": 993,
+    "imapSecure": true,
+    "imapUser": "john@gmail.com",
+    "imapPass": "your-gmail-app-password",
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "smtpSecure": false,
+    "smtpUser": "john@gmail.com",
+    "smtpPass": "your-gmail-app-password",
+    "fromEmail": "john@gmail.com"
+  }'
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "a1b2c3d4e5f6g7h8",
+    "email": "john@example.com"
+  }
+}
+```
+
+## 2. Login
+
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "secure-password-123"
+  }'
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "a1b2c3d4e5f6g7h8",
+    "email": "john@example.com"
+  }
+}
+```
+
+## 3. Get User Profile
+
+```bash
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+curl -X GET http://localhost:3001/api/user/profile \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "userId": "a1b2c3d4e5f6g7h8"
+}
+```
+
+## 4. Get User Credentials (without passwords)
+
+```bash
+curl -X GET http://localhost:3001/api/user/credentials \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "id": "cred-id-123",
+  "userId": "a1b2c3d4e5f6g7h8",
+  "imapHost": "imap.gmail.com",
+  "imapPort": 993,
+  "imapSecure": 1,
+  "imapUser": "john@gmail.com",
+  "smtpHost": "smtp.gmail.com",
+  "smtpPort": 587,
+  "smtpSecure": 0,
+  "smtpUser": "john@gmail.com",
+  "fromEmail": "john@gmail.com",
+  "createdAt": 1699564800,
+  "updatedAt": 1699564800
+}
+```
+
+## 5. Update User Credentials
+
+```bash
+curl -X PUT http://localhost:3001/api/user/credentials \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "imapPass": "new-gmail-app-password",
+    "smtpPass": "new-gmail-app-password"
+  }'
+```
+
+**Response:** Same as Get Credentials
+
+## 6. List Email Folders
+
+```bash
+curl -X GET http://localhost:3001/api/folders \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+[
+  {
+    "name": "INBOX",
+    "count": 5
+  },
+  {
+    "name": "Sent",
+    "count": 12
+  },
+  {
+    "name": "Drafts",
+    "count": 2
+  },
+  {
+    "name": "Trash",
+    "count": 8
+  }
+]
+```
+
+## 7. Get Messages from Folder
+
+```bash
+# Get first page with 20 emails per page
+curl -X GET "http://localhost:3001/api/messages?folder=INBOX&page=1&limit=20" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Get second page
+curl -X GET "http://localhost:3001/api/messages?folder=INBOX&page=2&limit=20" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "12345",
+    "uid": 12345,
+    "subject": "Welcome to QuackMail",
+    "from": "sender@example.com",
+    "to": ["john@gmail.com"],
+    "date": "2024-11-09T10:30:00.000Z",
+    "folder": "INBOX",
+    "unread": true,
+    "bodyHtml": "<p>Welcome message</p>",
+    "bodyText": "Welcome message"
+  }
+]
+```
+
+## 8. Get Single Email Message
+
+```bash
+curl -X GET "http://localhost:3001/api/messages/12345?folder=INBOX" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "id": "12345",
+  "uid": 12345,
+  "subject": "Welcome to QuackMail",
+  "from": "sender@example.com",
+  "to": ["john@gmail.com"],
+  "date": "2024-11-09T10:30:00.000Z",
+  "folder": "INBOX",
+  "unread": true,
+  "bodyHtml": "<p>Welcome message</p>",
+  "bodyText": "Welcome message"
+}
+```
+
+## 9. Send Email
+
+```bash
+curl -X POST http://localhost:3001/api/compose \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "to": ["recipient@example.com"],
+    "cc": ["cc@example.com"],
+    "bcc": ["bcc@example.com"],
+    "subject": "Hello World",
+    "body": "<p>This is an HTML email</p>",
+    "bodyText": "This is plain text",
+    "attachments": []
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Email sent successfully",
+  "messageId": "<message-id@gmail.com>"
+}
+```
+
+## 10. Mark Email as Read
+
+```bash
+curl -X PUT "http://localhost:3001/api/messages/12345/read?folder=INBOX" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+## 11. Delete Email
+
+```bash
+curl -X DELETE "http://localhost:3001/api/messages/12345?folder=INBOX" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+## 12. Logout
+
+```bash
+curl -X POST http://localhost:3001/api/auth/logout \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+## Error Responses
+
+### Missing Authorization Header
+```bash
+curl http://localhost:3001/api/folders
+```
+
+**Response (401):**
+```json
+{
+  "error": "Missing authorization header"
+}
+```
+
+### Invalid Token
+```bash
+curl http://localhost:3001/api/folders \
+  -H "Authorization: Bearer invalid-token"
+```
+
+**Response (401):**
+```json
+{
+  "error": "Invalid token"
+}
+```
+
+### Invalid Credentials
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "wrong-password"
+  }'
+```
+
+**Response (401):**
+```json
+{
+  "error": "Invalid credentials"
+}
+```
+
+### User Already Exists
+```bash
+# Register same email twice
+```
+
+**Response (400):**
+```json
+{
+  "error": "User already exists"
+}
+```
+
+### IMAP Connection Error
+
+If IMAP credentials are incorrect:
+
+```bash
+curl http://localhost:3001/api/folders \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response (500):**
+```json
+{
+  "error": "Failed to connect to email server: Invalid login credentials"
+}
+```
+
+## JavaScript Client Example
+
+```javascript
+// Register
+const registerRes = await fetch('http://localhost:3001/api/auth/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'password123',
+    imapHost: 'imap.gmail.com',
+    imapPort: 993,
+    imapSecure: true,
+    imapUser: 'user@gmail.com',
+    imapPass: 'app-password',
+    smtpHost: 'smtp.gmail.com',
+    smtpPort: 587,
+    smtpSecure: false,
+    smtpUser: 'user@gmail.com',
+    smtpPass: 'app-password',
+    fromEmail: 'user@gmail.com'
+  })
+});
+
+const { token } = await registerRes.json();
+localStorage.setItem('token', token);
+
+// Get messages
+const messagesRes = await fetch('http://localhost:3001/api/messages?folder=INBOX', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+
+const messages = await messagesRes.json();
+console.log(messages);
+
+// Send email
+const sendRes = await fetch('http://localhost:3001/api/compose', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    to: ['recipient@example.com'],
+    subject: 'Hello',
+    body: '<p>Email content</p>'
+  })
+});
+
+const result = await sendRes.json();
+console.log(result);
+```
+
+## Rate Limiting Recommendations
+
+For production, consider rate limiting:
+- Auth endpoints: 5 requests per minute per IP
+- Email send: 10 requests per hour per user
+- General API: 100 requests per minute per user
+
+</code>
+
+QUICK_START.md:
+<code>
+# QuackMail Multi-User Quick Start
+
+## Prerequisites
+- Node.js 18+
+- pnpm 10+
+- IMAP/SMTP credentials (Gmail, Outlook, etc.)
+
+## Setup Steps
+
+### 1. Install Dependencies
+```bash
+cd backend
+pnpm install
+```
+
+### 2. Initialize Database
+```bash
+pnpm run db:migrate
+```
+
+This creates:
+- `data/quackmail.db` - SQLite database
+- Tables: `users`, `user_credentials`, `sessions`
+
+### 3. Configure Environment
+```bash
+cp .env.example .env
+```
+
+Edit `.env` to set:
+```
+JWT_SECRET=your-super-secret-key-minimum-32-chars
+```
+
+### 4. Start Server
+```bash
+pnpm run dev
+```
+
+Server runs at `http://localhost:3001`
+
+## Quick Test
+
+Open another terminal and test the API:
+
+### Register User
+```bash
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@gmail.com",
+    "password": "mypassword",
+    "imapHost": "imap.gmail.com",
+    "imapPort": 993,
+    "imapSecure": true,
+    "imapUser": "test@gmail.com",
+    "imapPass": "your-gmail-app-password",
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "smtpSecure": false,
+    "smtpUser": "test@gmail.com",
+    "smtpPass": "your-gmail-app-password",
+    "fromEmail": "test@gmail.com"
+  }'
+```
+
+Save the returned token:
+```bash
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+### Get Folders
+```bash
+curl http://localhost:3001/api/folders \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Get Inbox Messages
+```bash
+curl "http://localhost:3001/api/messages?folder=INBOX" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Send Email
+```bash
+curl -X POST http://localhost:3001/api/compose \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "to": ["recipient@example.com"],
+    "subject": "Hello",
+    "body": "<p>Test email</p>"
+  }'
+```
+
+## Gmail Setup
+
+To use with Gmail:
+
+1. Enable 2-Factor Authentication in Gmail account settings
+2. Create an App Password (not your actual password):
+   - Go to Google Account → Security
+   - Select "App passwords" 
+   - Create password for "Mail" and "Windows Computer"
+   - Use this 16-character password in `imapPass` and `smtpPass`
+
+3. Use in QuackMail:
+   ```
+   imapUser: your-email@gmail.com
+   imapPass: xxxx xxxx xxxx xxxx (the 16-char app password)
+   smtpUser: your-email@gmail.com
+   smtpPass: xxxx xxxx xxxx xxxx (same app password)
+   ```
+
+## Troubleshooting
+
+### "Failed to connect to email server"
+- Check IMAP/SMTP credentials are correct
+- For Gmail: Use App Password, not account password
+- Verify host/port are correct for your email provider
+
+### "User already exists"
+- You're trying to register with an email that's already registered
+- Use a different email or delete from database
+
+### "Invalid token"
+- Token is invalid or expired (7 days)
+- Re-login to get a new token
+
+### "Email not found"
+- Message UID is incorrect
+- Try getting messages list first to get valid UIDs
+
+## Next Steps
+
+1. Update frontend with login/register pages
+2. Add token storage to localStorage
+3. Add Authorization header to API requests
+4. Test with multiple users
+5. Set up production environment with:
+   - HTTPS/TLS
+   - Proper password hashing (bcrypt)
+   - Password encryption in database
+   - Rate limiting
+   - Email verification
+
+## API Documentation
+
+See `API_EXAMPLES.md` for detailed endpoint documentation.
+
+See `MULTIUSER_SETUP.md` for architecture and security notes.
+
+## Project Structure
+
+```
+backend/
+├── src/
+│   ├── index.ts              # Main API routes
+│   ├── db/
+│   │   ├── schema.ts         # Database schema
+│   │   ├── index.ts          # DB connection
+│   │   └── migrate.ts        # Migration script
+│   ├── services/
+│   │   ├── authService.ts    # User auth logic
+│   │   └── emailServiceFactory.ts  # Per-user email service
+│   └── middleware/
+│       └── auth.ts           # JWT validation
+├── drizzle/                  # Auto-generated migrations
+├── data/
+│   └── quackmail.db         # SQLite database
+├── .env                      # Configuration
+└── package.json
+```
+
+## Database Schema
+
+```
+users
+  ├── id (TEXT, PRIMARY KEY)
+  ├── email (TEXT, UNIQUE)
+  ├── password (TEXT, hashed)
+  ├── created_at (INTEGER)
+  └── updated_at (INTEGER)
+
+user_credentials
+  ├── id (TEXT, PRIMARY KEY)
+  ├── user_id (TEXT, FK→users)
+  ├── imap_host (TEXT)
+  ├── imap_port (INTEGER)
+  ├── imap_secure (INTEGER)
+  ├── imap_user (TEXT)
+  ├── imap_pass (TEXT)
+  ├── smtp_host (TEXT)
+  ├── smtp_port (INTEGER)
+  ├── smtp_secure (INTEGER)
+  ├── smtp_user (TEXT)
+  ├── smtp_pass (TEXT)
+  ├── from_email (TEXT)
+  ├── created_at (INTEGER)
+  └── updated_at (INTEGER)
+
+sessions
+  ├── id (TEXT, PRIMARY KEY)
+  ├── user_id (TEXT, FK→users)
+  ├── token (TEXT, UNIQUE)
+  ├── expires_at (INTEGER)
+  └── created_at (INTEGER)
+```
+
+## Support
+
+For issues:
+1. Check logs in terminal running `pnpm run dev`
+2. Verify email provider credentials
+3. Check database exists at `data/quackmail.db`
+4. See detailed API docs in `API_EXAMPLES.md`
+
+</code>
+
+pnpm-workspace.yaml:
+<code>
+packages:
+  - frontend
+  - backend
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver
+
+</code>
+
