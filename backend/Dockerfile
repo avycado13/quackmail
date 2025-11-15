@@ -1,22 +1,46 @@
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS builder
+
+# Install pnpm
+RUN npm install -g pnpm
+
+WORKDIR /build
+
+# Copy monorepo config and lockfile
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+
+# Copy backend package.json
+COPY backend/package.json ./backend/
+
+# Install only backend dependencies (and shared deps)
+RUN pnpm install --frozen-lockfile --filter backend
+
+# Copy backend source code
+COPY backend ./backend
+
+# Build backend
+RUN pnpm --filter backend build
+
+# Production stage
 FROM node:20-alpine
+
+RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY pnpm-lock.yaml ./
+# Copy monorepo config and lockfile
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 
-# Install dependencies
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+# Copy backend package.json
+COPY backend/package.json ./backend/
 
-# Copy source code
-COPY . .
+# Install production dependencies only for backend
+RUN pnpm install --frozen-lockfile --filter backend --prod
 
-# Build the application
-RUN pnpm build
+# Copy built backend from builder
+COPY --from=builder /build/backend/dist ./backend/dist
+COPY --from=builder /build/backend/package.json ./backend/
 
-# Expose port
 EXPOSE 3001
 
-# Start the application
-CMD ["pnpm", "start"]
+CMD ["pnpm", "--filter", "backend", "start"]
